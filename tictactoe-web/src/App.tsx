@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import type { GameState, GameMode, Cell, Scoreboard } from "./types";
 import "./App.css";
 
 const API = "http://localhost:5217/api";
 
 // Marks are drawn as SVG strokes so they can animate in, the way they would
 // be drawn on paper.
-function Mark({ player }) {
+function Mark({ player }: { player: Cell }) {
   if (player === "X") {
     return (
       <svg className="mark mark-x" viewBox="0 0 100 100" aria-hidden="true">
@@ -25,38 +26,41 @@ function Mark({ player }) {
 }
 
 export default function App() {
-  const [game, setGame] = useState(null);
-  const [mode, setMode] = useState("TwoPlayer");
-  const [error, setError] = useState(null);
+  const [game, setGame] = useState<GameState | null>(null);
+  const [mode, setMode] = useState<GameMode>("TwoPlayer");
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Every call returns the full game state, which becomes the single source
   // of truth for the UI. No game rules are evaluated on the client.
-  const call = useCallback(async (path, options = {}) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API}${path}`, {
-        headers: { "Content-Type": "application/json" },
-        ...options,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "That move could not be played.");
+  const call = useCallback(
+    async <T,>(path: string, options: RequestInit = {}): Promise<T | null> => {
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API}${path}`, {
+          headers: { "Content-Type": "application/json" },
+          ...options,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "That move could not be played.");
+          return null;
+        }
+        return data as T;
+      } catch {
+        setError("Cannot reach the server. Check the API is running on port 5217.");
         return null;
+      } finally {
+        setBusy(false);
       }
-      return data;
-    } catch {
-      setError("Cannot reach the server. Check the API is running on port 5217.");
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   const newGame = useCallback(
-    async (gameMode) => {
-      const data = await call("/games", {
+    async (gameMode: GameMode) => {
+      const data = await call<GameState>("/games", {
         method: "POST",
         body: JSON.stringify({ mode: gameMode }),
       });
@@ -69,12 +73,12 @@ export default function App() {
     newGame(mode);
   }, [mode, newGame]);
 
-  const play = async (cell) => {
+  const play = async (cell: number) => {
     if (!game || busy) return;
     if (game.status !== "InProgress") return;
     if (game.board[cell] !== "") return;
 
-    const data = await call(`/games/${game.gameId}/moves`, {
+    const data = await call<GameState>(`/games/${game.gameId}/moves`, {
       method: "POST",
       body: JSON.stringify({ player: game.currentPlayer, cell }),
     });
@@ -82,17 +86,24 @@ export default function App() {
   };
 
   const undo = async () => {
-    const data = await call(`/games/${game.gameId}/undo`, { method: "POST" });
+    if (!game) return;
+    const data = await call<GameState>(`/games/${game.gameId}/undo`, {
+      method: "POST",
+    });
     if (data) setGame(data);
   };
 
   const reset = async () => {
-    const data = await call(`/games/${game.gameId}/reset`, { method: "POST" });
+    if (!game) return;
+    const data = await call<GameState>(`/games/${game.gameId}/reset`, {
+      method: "POST",
+    });
     if (data) setGame(data);
   };
 
   const resetScoreboard = async () => {
-    const data = await call("/scoreboard/reset", { method: "POST" });
+    if (!game) return;
+    const data = await call<Scoreboard>("/scoreboard/reset", { method: "POST" });
     if (data) setGame({ ...game, scoreboard: data });
   };
 
