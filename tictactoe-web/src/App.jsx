@@ -3,6 +3,27 @@ import "./App.css";
 
 const API = "http://localhost:5217/api";
 
+// Marks are drawn as SVG strokes so they can animate in, the way they would
+// be drawn on paper.
+function Mark({ player }) {
+  if (player === "X") {
+    return (
+      <svg className="mark mark-x" viewBox="0 0 100 100" aria-hidden="true">
+        <line className="stroke s1" x1="24" y1="24" x2="76" y2="76" />
+        <line className="stroke s2" x1="76" y1="24" x2="24" y2="76" />
+      </svg>
+    );
+  }
+  if (player === "O") {
+    return (
+      <svg className="mark mark-o" viewBox="0 0 100 100" aria-hidden="true">
+        <circle className="stroke s1" cx="50" cy="50" r="27" />
+      </svg>
+    );
+  }
+  return null;
+}
+
 export default function App() {
   const [game, setGame] = useState(null);
   const [mode, setMode] = useState("TwoPlayer");
@@ -21,12 +42,12 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Request failed.");
+        setError(data.error ?? "That move could not be played.");
         return null;
       }
       return data;
     } catch {
-      setError("Cannot reach the server. Is the API running on port 5217?");
+      setError("Cannot reach the server. Check the API is running on port 5217.");
       return null;
     } finally {
       setBusy(false);
@@ -79,124 +100,131 @@ export default function App() {
     return (
       <div className="app">
         <h1>Tic Tac Toe</h1>
-        <p className="error">{error ?? "Loading..."}</p>
+        <p className="error">{error ?? "Starting a game..."}</p>
       </div>
     );
   }
 
   const winning = game.winningCells ?? [];
-
-  const message =
-    game.status === "Won"
-      ? `Player ${game.winner} wins`
-      : game.status === "Draw"
-      ? "It's a draw"
-      : `Turn: ${game.currentPlayer}${
-          game.mode === "Computer" && game.currentPlayer === "O"
-            ? " (computer)"
-            : ""
-        }`;
+  const over = game.status !== "InProgress";
+  const computerTurn = game.mode === "Computer" && game.currentPlayer === "O";
 
   return (
     <div className="app">
-      <h1>Tic Tac Toe</h1>
-
-      <div className="modes">
-        <label>
-          <input
-            type="radio"
-            checked={mode === "TwoPlayer"}
-            onChange={() => setMode("TwoPlayer")}
-          />
-          Two Player
-        </label>
-        <label>
-          <input
-            type="radio"
-            checked={mode === "Computer"}
-            onChange={() => setMode("Computer")}
-          />
-          Play Against Computer
-        </label>
-      </div>
-
-      <p className={`status ${game.status !== "InProgress" ? "final" : ""}`}>
-        {message}
-      </p>
-
-      <div className="board">
-        {game.board.map((value, i) => (
+      <header>
+        <h1>Tic Tac Toe</h1>
+        <p className="tagline">Line up three. Row, column or diagonal.</p>
+        <div className="modes" role="radiogroup" aria-label="Game mode">
           <button
-            key={i}
-            className={`cell ${winning.includes(i) ? "winning" : ""}`}
-            onClick={() => play(i)}
-            disabled={value !== "" || game.status !== "InProgress" || busy}
+            className={mode === "TwoPlayer" ? "mode on" : "mode"}
+            onClick={() => setMode("TwoPlayer")}
+            role="radio"
+            aria-checked={mode === "TwoPlayer"}
           >
-            {value}
+            Two players
           </button>
-        ))}
-      </div>
+          <button
+            className={mode === "Computer" ? "mode on" : "mode"}
+            onClick={() => setMode("Computer")}
+            role="radio"
+            aria-checked={mode === "Computer"}
+          >
+            Against computer
+          </button>
+        </div>
+      </header>
 
-      <div className="controls">
-        <button onClick={undo} disabled={!game.canUndo || busy}>
-          Undo Last Move
-        </button>
-        <button onClick={reset} disabled={busy}>
-          Reset Game
-        </button>
-        <button onClick={resetScoreboard} disabled={busy}>
-          Reset Scoreboard
-        </button>
-      </div>
+      <div className="stage">
+        <p className="status" aria-live="polite">
+          {game.status === "Won" ? (
+            <>
+              <span className={`token ${game.winner === "X" ? "x" : "o"}`}>
+                {game.winner}
+              </span>
+              <span>wins this round</span>
+            </>
+          ) : game.status === "Draw" ? (
+            <span>Board full &mdash; nobody wins</span>
+          ) : (
+            <>
+              <span className={`token ${game.currentPlayer === "X" ? "x" : "o"}`}>
+                {game.currentPlayer}
+              </span>
+              <span>{computerTurn ? "is the computer" : "to play"}</span>
+            </>
+          )}
+        </p>
 
-      {error && <p className="error">{error}</p>}
+        <div className={`board ${over ? "over" : ""}`}>
+          {game.board.map((value, i) => (
+            <button
+              key={i}
+              className={[
+                "cell",
+                value ? "filled" : "",
+                winning.includes(i) ? "winning" : "",
+              ].join(" ")}
+              onClick={() => play(i)}
+              disabled={value !== "" || over || busy}
+              aria-label={`Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}${
+                value ? `, ${value}` : ", empty"
+              }`}
+            >
+              <Mark player={value} />
+            </button>
+          ))}
+        </div>
+
+        <div className="controls">
+          <button onClick={undo} disabled={!game.canUndo || busy}>
+            Undo last move
+          </button>
+          <button onClick={reset} disabled={busy}>
+            New round
+          </button>
+          <button className="quiet" onClick={resetScoreboard} disabled={busy}>
+            Clear scores
+          </button>
+        </div>
+
+        {error && <p className="error">{error}</p>}
+      </div>
 
       <div className="panels">
-        <section>
-          <h2>Scoreboard</h2>
-          <table>
-            <tbody>
-              <tr>
-                <td>X wins</td>
-                <td>{game.scoreboard.xWins}</td>
-              </tr>
-              <tr>
-                <td>O wins</td>
-                <td>{game.scoreboard.oWins}</td>
-              </tr>
-              <tr>
-                <td>Draws</td>
-                <td>{game.scoreboard.draws}</td>
-              </tr>
-            </tbody>
-          </table>
+        <section className="scores">
+          <h2>Scores</h2>
+          <div className="score-row">
+            <span className="token small x">X</span>
+            <span className="count">{game.scoreboard.xWins}</span>
+          </div>
+          <div className="score-row">
+            <span className="token small o">O</span>
+            <span className="count">{game.scoreboard.oWins}</span>
+          </div>
+          <div className="score-row">
+            <span className="token small draw">&ndash;</span>
+            <span className="count">{game.scoreboard.draws}</span>
+          </div>
         </section>
 
-        <section>
-          <h2>Move History</h2>
+        <section className="history">
+          <h2>Moves this round</h2>
           {game.moveHistory.length === 0 ? (
-            <p className="empty">No moves yet.</p>
+            <p className="empty">Pick a square to start.</p>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Player</th>
-                  <th>Position</th>
-                </tr>
-              </thead>
-              <tbody>
-                {game.moveHistory.map((m) => (
-                  <tr key={m.moveNumber}>
-                    <td>{m.moveNumber}</td>
-                    <td>{m.player}</td>
-                    <td>
-                      Row {m.row + 1}, Column {m.column + 1}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ol>
+              {game.moveHistory.map((m) => (
+                <li key={m.moveNumber}>
+                  <span className="num">{m.moveNumber}</span>
+                  <span className={`token small ${m.player === "X" ? "x" : "o"}`}>
+                    {m.player}
+                  </span>
+                  <span className="pos">
+                    row {m.row + 1}, column {m.column + 1}
+                  </span>
+                </li>
+              ))}
+            </ol>
           )}
         </section>
       </div>

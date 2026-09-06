@@ -1,145 +1,396 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap");
+
 :root {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #1c1c1e;
-  background: #f7f7f8;
+  --night: #0e1230;
+  --board: #1d2454;
+  --rail: #2b3470;
+  --paper: #f7f5ef;
+  --x: #ff5c72;
+  --o: #23d6bf;
+  --win: #ffc94d;
+  --text: #edebf7;
+  --muted: #8b90bd;
+
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  color: var(--text);
 }
 
+* {
+  box-sizing: border-box;
+}
+
+/* The page is tiled with faint grids and marks, as if the same game had been
+   played over and over on one sheet. Colour glows sit underneath. */
 body {
   margin: 0;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
-  min-height: 100vh;
+  background-color: var(--night);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='190' viewBox='0 0 190 190'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.05' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M64 18V172'/%3E%3Cpath d='M126 18V172'/%3E%3Cpath d='M18 64H172'/%3E%3Cpath d='M18 126H172'/%3E%3Cpath d='M34 34L50 50M50 34L34 50'/%3E%3Ccircle cx='158' cy='95' r='11'/%3E%3Cpath d='M87 148L103 164M103 148L87 164'/%3E%3Ccircle cx='95' cy='95' r='11'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(circle at 12% -5%, rgba(255, 92, 114, 0.22), transparent 45%),
+    radial-gradient(circle at 88% 5%, rgba(35, 214, 191, 0.18), transparent 45%),
+    radial-gradient(circle at 50% 105%, rgba(255, 201, 77, 0.14), transparent 55%);
+  background-attachment: fixed;
 }
 
+/* Nothing here is meant to be selected as text, and stray highlights during
+   fast clicking look broken. */
 .app {
-  padding: 2rem 1.5rem 4rem;
   width: 100%;
-  max-width: 720px;
+  max-width: 980px;
+  padding: 2rem 1.5rem 3rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 1.75rem;
 }
 
 h1 {
-  font-size: 1.75rem;
-  margin: 0 0 1.25rem;
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  margin: 0;
+  background: linear-gradient(100deg, var(--x) 8%, var(--win) 50%, var(--o) 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-h2 {
+.tagline {
+  color: var(--muted);
   font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #6b6b70;
-  margin: 0 0 0.5rem;
+  margin: 0.5rem 0 1.25rem;
 }
 
 .modes {
-  display: flex;
-  gap: 1.5rem;
-  margin-bottom: 1.25rem;
-  font-size: 0.95rem;
+  display: inline-flex;
+  background: rgba(14, 18, 48, 0.75);
+  border: 1px solid var(--rail);
+  border-radius: 999px;
+  padding: 4px;
 }
 
-.modes label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+.mode {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.55rem 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
   cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.mode:hover {
+  color: var(--text);
+}
+
+.mode.on {
+  background: var(--paper);
+  color: var(--night);
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .status {
-  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  margin: 0 0 1rem;
-  min-height: 1.5em;
+  margin: 0 0 1.25rem;
+  min-height: 2.5rem;
 }
 
-.status.final {
-  color: #1a7f37;
+.token {
+  display: inline-grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 12px;
+  font-weight: 800;
+  color: var(--night);
+  background: var(--muted);
 }
+
+.token.small {
+  width: 1.7rem;
+  height: 1.7rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+}
+
+.token.x { background: var(--x); }
+.token.o { background: var(--o); }
+.token.draw { background: var(--muted); }
 
 .board {
   display: grid;
-  grid-template-columns: repeat(3, 96px);
-  gap: 6px;
-  margin-bottom: 1.25rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 12px;
+  width: min(400px, 88vw);
+  background: var(--board);
+  border: 1px solid var(--rail);
+  border-radius: 24px;
+  box-shadow: 0 30px 60px -25px rgba(0, 0, 0, 0.8);
 }
 
 .cell {
-  width: 96px;
-  height: 96px;
-  font-size: 2.5rem;
-  font-weight: 600;
-  background: #fff;
-  border: 1px solid #d8d8dc;
-  border-radius: 8px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: var(--paper);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: transform 0.13s ease, background 0.18s;
 }
 
 .cell:hover:not(:disabled) {
-  background: #eef1f5;
+  background: #fff;
+  transform: translateY(-3px);
+}
+
+.cell:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .cell:disabled {
   cursor: default;
 }
 
+.cell:focus-visible {
+  outline: 3px solid var(--win);
+  outline-offset: 3px;
+}
+
 .cell.winning {
-  background: #d6f5de;
-  border-color: #1a7f37;
+  background: var(--win);
+}
+
+.board.over .cell:not(.winning) {
+  opacity: 0.4;
+}
+
+.mark {
+  width: 58%;
+  height: 58%;
+  display: block;
+  overflow: visible;
+}
+
+.stroke {
+  fill: none;
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+
+.mark-x .stroke {
+  stroke: var(--x);
+  stroke-dasharray: 80;
+  stroke-dashoffset: 80;
+  animation: draw 0.2s ease-out forwards;
+}
+
+.mark-x .s2 {
+  animation-delay: 0.13s;
+}
+
+.mark-o .stroke {
+  stroke: var(--o);
+  stroke-dasharray: 180;
+  stroke-dashoffset: 180;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  animation: draw 0.32s ease-out forwards;
+}
+
+.winning .stroke {
+  stroke: var(--night);
+}
+
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
 }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.6rem;
-  margin-bottom: 1.5rem;
+  margin-top: 1.5rem;
 }
 
 .controls button {
-  padding: 0.55rem 1rem;
+  font: inherit;
   font-size: 0.9rem;
-  background: #fff;
-  border: 1px solid #d8d8dc;
-  border-radius: 6px;
+  font-weight: 600;
+  padding: 0.62rem 1.3rem;
+  border: 1.5px solid var(--rail);
+  border-radius: 999px;
+  background: rgba(14, 18, 48, 0.6);
+  color: var(--text);
   cursor: pointer;
+  transition: background 0.16s, color 0.16s, border-color 0.16s;
 }
 
 .controls button:hover:not(:disabled) {
-  background: #eef1f5;
+  background: var(--paper);
+  border-color: var(--paper);
+  color: var(--night);
+}
+
+.controls button.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.controls button.quiet:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
 }
 
 .controls button:disabled {
-  opacity: 0.45;
+  opacity: 0.28;
   cursor: default;
+}
+
+.controls button:focus-visible {
+  outline: 3px solid var(--win);
+  outline-offset: 2px;
 }
 
 .panels {
   display: flex;
   flex-wrap: wrap;
-  gap: 2.5rem;
+  gap: 3rem;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--rail);
 }
 
-table {
-  border-collapse: collapse;
-  font-size: 0.9rem;
+h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin: 0 0 0.85rem;
 }
 
-th {
-  text-align: left;
-  font-weight: 600;
-  color: #6b6b70;
-  padding: 0.3rem 1.25rem 0.3rem 0;
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.6rem;
 }
 
-td {
-  padding: 0.3rem 1.25rem 0.3rem 0;
+.count {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.history {
+  flex: 1;
+  min-width: 240px;
+}
+
+.history ol {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.history li {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 0.95rem;
+}
+
+.num {
+  width: 1.4rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.pos {
+  color: var(--muted);
 }
 
 .empty {
-  color: #8e8e93;
-  font-size: 0.9rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: 0;
 }
 
 .error {
-  color: #c0392b;
+  color: var(--x);
   font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 1rem;
+}
+
+/* On a laptop the board sits in the centre of the page with the score and
+   move list to its right, pulled up level with the mode toggle. The empty
+   left column balances the panels. Below this width the layout stacks. */
+@media (min-width: 900px) {
+  .app {
+    max-width: 1220px;
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) auto minmax(260px, 300px);
+    grid-template-areas:
+      "header header header"
+      ".      stage  panels";
+    column-gap: 5rem;
+    justify-content: center;
+    align-items: start;
+  }
+
+  header { grid-area: header; }
+  .stage { grid-area: stage; }
+
+  .panels {
+    grid-area: panels;
+    flex-direction: column;
+    gap: 2rem;
+    margin-top: -0.5rem;
+    padding-top: 0;
+    border-top: 0;
+    position: sticky;
+    top: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .mark-x .stroke,
+  .mark-o .stroke {
+    stroke-dashoffset: 0;
+  }
 }
